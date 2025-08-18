@@ -18,7 +18,7 @@
    - Linear Algebra (Vectors, Matrices, Operations)
    - Calculus (Derivatives, Gradients)
    - Probability & Statistics (Distributions, Hypothesis Testing)
-   - **Resources:** [Khan Academy](https://www.khanacademy.org/), [Essence of Linear Algebra (YouTube)](https://www.youtube.com/watch?v=kjBOesZCoqc)
+   - **Resources:** [Statistics-and-Maths](https://github.com/Its-Vikas-xd/Statistics-and-Maths)
 
 ---
 
@@ -34,7 +34,7 @@
    - Data Cleaning (Missing Values, Outliers)
    - Feature Engineering & Selection
    - Data Normalization & Transformation
-   - **Resources:** [Pandas Guide](https://pandas.pydata.org/docs/)
+   - **Resources:** [Data Preprocessing](https://github.com/Its-Vikas-xd/Machine-Learning/tree/main/Data%20Cleaning)
 
 ---
 
@@ -42,7 +42,7 @@
    - Regression (Linear, Polynomial)
    - Classification (Logistic Regression, SVM, KNN, Decision Trees)
    - Model Evaluation (Accuracy, Precision, Recall, F1)
-   - **Resources:** [scikit-learn Docs](https://scikit-learn.org/)
+   - **Resources:** [Supervised Learing](https://github.com/Its-Vikas-xd/Machine-Learning/tree/main/Supervised%20Machine%20Learning)
 
 ---
 
