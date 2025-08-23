@@ -148,7 +148,7 @@
 ---
 
 <p align="center">
-  <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSqcCW_w9_RRDpWwbjYNy5HiGT2crQlsrvGAw&s" width="300" alt="ML Animation"/>
+  <img src="https://imarticus.org/blog/wp-content/uploads/2020/06/bh.gif" width="300" alt="ML Animation"/>
 </p>
 
 ---
