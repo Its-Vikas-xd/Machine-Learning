@@ -178,7 +178,7 @@ Machine-Learning/
 ## ⭐ Star if you like this repo!
 
 <p align="center">
-  <img src="https://img.shields.io/github/stars/Its-Vikas-xd/Machine-Learning?style=social" alt="GitHub stars"/>
+  <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQq8Azv8FwFA2y4t1RWg3SAkS0qlW9autzT1Q&s" alt="GitHub stars"/>
 </p>
 
 ---
