@@ -148,7 +148,7 @@
 ---
 
 <p align="center">
-  <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExa3gyZG4xc3BvZ3Ftc2E5bm5jZTY2b3k1Y2Y4cHJpaWtvOTJ3b3oxZyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/UoLt6Tm8wlYtGFtdrE/giphy.gif" width="300" alt="ML Animation"/>
+  <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSqcCW_w9_RRDpWwbjYNy5HiGT2crQlsrvGAw&s" width="300" alt="ML Animation"/>
 </p>
 
 ---
@@ -173,15 +173,7 @@ Machine-Learning/
 - Fork the repo, add your ML projects or notebooks, and make a pull request!
 - Feel free to open issues or suggest improvements!
 
----
 
-## ⭐ Star if you like this repo!
-
-<p align="center">
-  <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQq8Azv8FwFA2y4t1RWg3SAkS0qlW9autzT1Q&s" alt="GitHub stars"/>
-</p>
-
----
 
 <p align="center">
   <b>Happy Learning & Building! 🚀</b>
