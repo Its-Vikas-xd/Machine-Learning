@@ -187,6 +187,8 @@
 
 ---
 
+
+
 > <div align="center" style="background: linear-gradient(45deg, #7F3DFF, #FF61C6); padding: 15px; border-radius: 10px; margin: 20px 0; box-shadow: 0 4px 15px rgba(127, 61, 255, 0.3);">
 >   <b style="color: white; font-size: 18px;">✨ Thanks for visiting! Let's connect, collaborate, and build something amazing together! ✨</b>
 > </div>
