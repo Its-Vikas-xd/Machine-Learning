@@ -1,616 +1,274 @@
-import streamlit as st
+from flask import Flask, request, jsonify, render_template_string
+from flask_cors import CORS
 import pickle
 import json
 import numpy as np
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-import time
+import os
+from werkzeug.exceptions import BadRequest
+import logging
 
-# Page configuration
-st.set_page_config(
-    page_title="Bangalore House Price Predictor",
-    page_icon="🏠",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Enhanced Custom CSS with animations and modern design
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
-    
-    .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-        font-family: 'Poppins', sans-serif;
-    }
-    
-    .main-container {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        border-radius: 20px;
-        padding: 2rem;
-        margin: 1rem;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-        animation: fadeInUp 0.8s ease-out;
-    }
-    
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    @keyframes pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.05); }
-        100% { transform: scale(1); }
-    }
-    
-    @keyframes glow {
-        0% { box-shadow: 0 0 5px rgba(102, 126, 234, 0.5); }
-        50% { box-shadow: 0 0 20px rgba(102, 126, 234, 0.8); }
-        100% { box-shadow: 0 0 5px rgba(102, 126, 234, 0.5); }
-    }
-    
-    @keyframes slideInLeft {
-        from {
-            opacity: 0;
-            transform: translateX(-50px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
-    }
-    
-    @keyframes slideInRight {
-        from {
-            opacity: 0;
-            transform: translateX(50px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
-    }
-    
-    .main-header {
-        font-size: 3.5rem;
-        font-weight: 700;
-        color: #1a202c;
-        text-align: center;
-        margin-bottom: 2rem;
-        animation: pulse 2s infinite;
-        text-shadow: 2px 2px 8px rgba(0,0,0,0.3);
-    }
-    
-    .sub-header {
-        font-size: 1.8rem;
-        font-weight: 600;
-        color: #00000;
-        margin-bottom: 1.5rem;
-        animation: slideInLeft 0.6s ease-out;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
-    }
-    
-    .prediction-box {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-        padding: 3rem;
-        border-radius: 20px;
-        color: black;
-        text-align: center;
-        margin: 2rem 0;
-        box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3);
-        animation: glow 3s infinite, slideInRight 0.8s ease-out;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .prediction-box::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
-        transform: rotate(45deg);
-        animation: shine 3s infinite;
-    }
-    
-    @keyframes shine {
-        0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
-        50% { transform: translateX(100%) translateY(100%) rotate(45deg); }
-        100% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
-    }
-    
-    .price-text {
-        font-size: 3rem;
-        font-weight: 700;
-        margin: 1rem 0;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        animation: pulse 2s infinite;
-        position: relative;
-        z-index: 1;
-    }
-    
-    .info-box {
-        background: linear-gradient(135deg, #f8f9ff, #e8f2ff);
-        padding: 2rem;
-        border-radius: 15px;
-        border: 1px solid rgba(102, 126, 234, 0.2);
-        margin: 1rem 0;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-        animation: slideInUp 0.6s ease-out;
-    }
-    
-    @keyframes slideInUp {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .info-box:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 15px 30px rgba(102, 126, 234, 0.2);
-    }
-    
-    .metric-card {
-        background: linear-gradient(135deg, #fff, #f8f9ff);
-        padding: 1.5rem;
-        border-radius: 12px;
-        text-align: center;
-        margin: 0.5rem;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-        transition: transform 0.3s ease;
-        animation: slideInUp 0.8s ease-out;
-    }
-    
-    .metric-card:hover {
-        transform: scale(1.05);
-        box-shadow: 0 15px 30px rgba(102, 126, 234, 0.2);
-    }
-    
-    .sidebar .stSelectbox > div > div > div {
-        background: linear-gradient(135deg, #f8f9ff, #e8f2ff);
-        border: 2px solid rgba(102, 126, 234, 0.3);
-        border-radius: 10px;
-    }
-    
-    .stButton > button {
-        background: linear-gradient(135deg, #667eea, #764ba2) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 25px !important;
-        padding: 0.75rem 2rem !important;
-        font-weight: 600 !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3) !important;
-        animation: glow 2s infinite !important;
-    }
-    
-    .stButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 12px 25px rgba(102, 126, 234, 0.4) !important;
-    }
-    
-    .floating-shapes {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        z-index: -1;
-    }
-    
-    .shape {
-        position: absolute;
-        background: rgba(102, 126, 234, 0.1);
-        border-radius: 50%;
-        animation: float 6s ease-in-out infinite;
-    }
-    
-    .shape:nth-child(1) {
-        width: 80px;
-        height: 80px;
-        top: 10%;
-        left: 10%;
-        animation-delay: 0s;
-    }
-    
-    .shape:nth-child(2) {
-        width: 120px;
-        height: 120px;
-        top: 20%;
-        right: 15%;
-        animation-delay: 2s;
-    }
-    
-    .shape:nth-child(3) {
-        width: 60px;
-        height: 60px;
-        bottom: 20%;
-        left: 20%;
-        animation-delay: 4s;
-    }
-    
-    @keyframes float {
-        0%, 100% { transform: translateY(0px) rotate(0deg); }
-        50% { transform: translateY(-20px) rotate(180deg); }
-    }
-    
-    .loading-animation {
-        display: inline-block;
-        width: 20px;
-        height: 20px;
-        border: 3px solid rgba(255,255,255,.3);
-        border-radius: 50%;
-        border-top-color: #fff;
-        animation: spin 1s ease-in-out infinite;
-    }
-    
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-    
-    .success-checkmark {
-        display: inline-block;
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        background: #4CAF50;
-        position: relative;
-        animation: checkmark 0.6s ease-in-out;
-    }
-    
-    @keyframes checkmark {
-        0% { transform: scale(0); }
-        50% { transform: scale(1.2); }
-        100% { transform: scale(1); }
-    }
-    
-    .stSidebar {
-        background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,249,255,0.95));
-        backdrop-filter: blur(10px);
-    }
-    
-    .chart-container {
-        background: rgba(255, 255, 255, 0.9);
-        border-radius: 15px;
-        padding: 1rem;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-        animation: slideInRight 1s ease-out;
-    }
-</style>
+app = Flask(__name__)
+CORS(app)  # Enable CORS for all domains on all routes
 
-<div class="floating-shapes">
-    <div class="shape"></div>
-    <div class="shape"></div>
-    <div class="shape"></div>
-</div>
-""", unsafe_allow_html=True)
+# Global variables to store model and columns
+model = None
+data_columns = None
+locations = None
 
-# Load model and data with enhanced error handling
-@st.cache_resource
-def load_model_and_data():
+def load_saved_artifacts():
+    """Load the trained model and column information"""
+    global model, data_columns, locations
+    
     try:
-        with st.spinner("🚀 Loading AI model..."):
-            time.sleep(1)  # Small delay for dramatic effect
-            # Load the trained model
-            with open('banglor_home_prices_model.pickle', 'rb') as f:
-                model = pickle.load(f)
-            
-            # Load the columns data
-            with open('columns.json', 'r') as f:
-                columns_data = json.load(f)
-            
-            st.success("✅ Model loaded successfully!")
-            time.sleep(0.5)
-            return model, columns_data
+        # Load the trained model
+        with open('banglor_home_prices_model.pickle', 'rb') as f:
+            model = pickle.load(f)
+        logger.info("Model loaded successfully")
+        
+        # Load columns information
+        with open('columns.json', 'r') as f:
+            data_columns = json.load(f)['data_columns']
+        
+        # Extract location columns (all columns except the first 3: sqft, bath, bhk)
+        locations = data_columns[3:]  # Skip total_sqft, bath, bhk
+        logger.info(f"Loaded {len(locations)} locations")
+        
     except FileNotFoundError as e:
-        st.error(f"❌ Model files not found: {e}")
-        st.error("Please make sure 'banglor_home_prices_model.pickle' and 'columns.json' are in the same directory")
-        return None, None
-
-# Enhanced prediction function with better error handling
-def predict_price(location, sqft, bath, bhk, model, columns):
-    if model is None or columns is None:
-        return None
-    
-    # Create feature vector
-    x = np.zeros(len(columns['data_columns']))
-    
-    # Set the numerical features
-    x[0] = sqft   # total_sqft
-    x[1] = bath   # bath
-    x[2] = bhk    # bhk
-    
-    # Set location (one-hot encoded)
-    location_lower = location.lower()
-    if location_lower in columns['data_columns']:
-        loc_index = columns['data_columns'].index(location_lower)
-        x[loc_index] = 1
-    
-    # Make prediction
-    try:
-        prediction = model.predict([x])[0]
-        return max(prediction, 0)  # Ensure non-negative price
+        logger.error(f"Model files not found: {e}")
+        raise Exception("Model files not found. Please ensure 'banglor_home_prices_model.pickle' and 'columns.json' are in the current directory.")
     except Exception as e:
-        st.error(f"Prediction error: {e}")
-        return None
+        logger.error(f"Error loading model: {e}")
+        raise Exception(f"Error loading model: {e}")
 
-# Get location list with better formatting
-def get_locations(columns_data):
-    if columns_data is None:
-        return []
-    locations = [col for col in columns_data['data_columns'][3:]]  # Skip sqft, bath, bhk
-    return sorted([loc.title().replace('_', ' ').replace('Phase', 'Phase ') for loc in locations])
-
-# Enhanced main app with animations
-def main():
-    # Floating header with animation
-    st.markdown("""
-    <div class="main-container">
-        <h1 class="main-header">🏠 Bangalore House Price Predictor</h1>
-        <div style="text-align: center; color: #2d3748; font-size: 1.1rem; margin-bottom: 2rem; animation: slideInUp 1s ease-out; font-weight: 500; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">
-            Powered by AI • Get instant price predictions for Bangalore properties
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+def get_estimated_price(location, sqft, bhk, bath):
+    """
+    Predict house price using the trained model
     
-    # Load model and data
-    model, columns_data = load_model_and_data()
+    Args:
+        location (str): Location name
+        sqft (float): Total square feet
+        bhk (int): Number of bedrooms
+        bath (int): Number of bathrooms
     
-    if model is None or columns_data is None:
-        st.error("❌ Unable to load model files. Please check if the files exist in the correct location.")
-        st.stop()
-    
-    # Enhanced sidebar with animations
-    with st.sidebar:
-        st.markdown('<h2 class="sub-header"; color:black>🔧 Property Configuration</h2>', unsafe_allow_html=True)
+    Returns:
+        float: Predicted price in lakhs
+    """
+    try:
+        # Create input array with zeros
+        x = np.zeros(len(data_columns))
         
-        # Get locations
-        locations = get_locations(columns_data)
+        # Set basic features
+        x[0] = sqft      # total_sqft
+        x[1] = bath      # bath  
+        x[2] = bhk       # bhk
         
-        # Location selector with enhanced styling
-        location = st.selectbox(
-            "📍 Choose Location",
-            ["🏙️ Select Location"] + locations,
-            help="Select the area where the property is located",
-            key="location_select"
-        )
+        # Set location feature if it exists in the model
+        location_lower = location.lower().strip()
         
-        # Create two columns for inputs
-        col1, col2 = st.columns(2)
+        # Try to find matching location
+        location_index = None
+        for i, loc in enumerate(locations):
+            if loc.lower() == location_lower:
+                location_index = i + 3  # +3 because locations start after sqft, bath, bhk
+                break
         
-        with col1:
-            sqft = st.number_input(
-                "📐 Area (Sq Ft)",
-                min_value=500,
-                max_value=10000,
-                value=1200,
-                step=100,
-                help="Total square feet area"
-            )
-            
-            bhk = st.selectbox(
-                "🛏️ BHK Type",
-                [1, 2, 3, 4, 5],
-                index=1,
-                help="Bedrooms, Hall & Kitchen"
-            )
-        
-        with col2:
-            bath = st.selectbox(
-                "🚿 Bathrooms",
-                [1, 2, 3, 4, 5, 6, 7, 8],
-                index=1,
-                help="Number of bathrooms"
-            )
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Enhanced predict button
-        predict_clicked = st.button(
-            "🔮 Predict Property Price",
-            type="primary",
-            use_container_width=True,
-            help="Click to get AI-powered price prediction"
-        )
-    
-    # Main content area with enhanced layout
-    if predict_clicked:
-        if location == "🏙️ Select Location":
-            st.warning("⚠️ Please select a location to get accurate price prediction.")
+        if location_index is not None:
+            x[location_index] = 1
+            logger.info(f"Location '{location}' found at index {location_index}")
         else:
-            # Show prediction process with animations
-            with st.spinner("🤖 AI is analyzing market trends..."):
-                progress_bar = st.progress(0)
-                for i in range(100):
-                    time.sleep(0.01)
-                    progress_bar.progress(i + 1)
-                
-                # Convert location back to original format
-                location_clean = location.lower().replace(' ', '_').replace('phase_', 'phase')
-                
-                predicted_price = predict_price(
-                    location_clean, sqft, bath, bhk, model, columns_data
-                )
-                
-                progress_bar.empty()
-                
-                if predicted_price is not None:
-                    # Main prediction display
-                    col1, col2 = st.columns([2, 1])
-                    
-                    with col1:
-                        st.markdown(f"""
-                        <div class="prediction-box">
-                            <div class="success-checkmark"></div>
-                            <h2 style="margin: 1rem 0; position: relative; z-index: 1;">💰 Predicted Price</h2>
-                            <div class="price-text">₹{predicted_price:.2f} Lakhs</div>
-                            <p style="font-size: 1.2rem; opacity: 0.9; position: relative; z-index: 1;">≈ ₹{predicted_price * 100000:,.0f}</p>
-                            <p style="font-size: 0.9rem; opacity: 0.8; position: relative; z-index: 1;">📍 {location}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        # Enhanced metrics display
-                        price_per_sqft = (predicted_price * 100000) / sqft
-                        
-                        # Create animated metric cards
-                        col_a, col_b, col_c = st.columns(3)
-                        
-                        with col_a:
-                            st.markdown(f"""
-                            <div class="metric-card">
-                            <div style="color: #2d3748; margin-bottom: 0.5rem;">💵 Price/Sq Ft</h4>
-                                <h2 style="color: #1a202c; margin: 0; font-weight: 700;">₹{price_per_sqft:,.0f}</h2>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        
-                        with col_b:
-                            st.markdown(f"""
-                            <div class="metric-card">
-                                <h4 style="color: #667eea; margin-bottom: 0.5rem;">📏 Total Area</h4>
-                                <h2 style="color: #2d3748; margin: 0;">{sqft:,} sq ft</h2>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        
-                        with col_c:
-                            st.markdown(f"""
-                            <div class="metric-card">
-                                <h4 style="color: #667eea; margin-bottom: 0.5rem;">🏠 Configuration</h4>
-                                <h2 style="color: #2d3748; margin: 0;">{bhk}BHK, {bath}Bath</h2>
-                            </div>
-                            """, unsafe_allow_html=True)
-                    
-                    with col2:
-                        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                        st.markdown('<h3 style="text-align: center; color: #4a5568; margin-bottom: 1rem;">📊 Market Analysis</h3>', unsafe_allow_html=True)
-                        
-                        # Enhanced comparison chart
-                        comparison_data = {
-                            'Property Type': ['1 BHK', '2 BHK', '3 BHK', '4 BHK', '5 BHK', 'Your Property'],
-                            'Price (Lakhs)': [30, 50, 75, 105, 140, predicted_price]
-                        }
-                        
-                        colors = ['#e3f2fd', '#bbdefb', '#90caf9', '#64b5f6', '#42a5f5', '#667eea']
-                        
-                        fig = px.bar(
-                            x=comparison_data['Property Type'],
-                            y=comparison_data['Price (Lakhs)'],
-                            title=f"Price Comparison - {location}",
-                            color=comparison_data['Property Type'],
-                            color_discrete_sequence=colors
-                        )
-                        
-                        fig.update_layout(
-                            showlegend=False,
-                            height=400,
-                            title_font_size=14,
-                            title_x=0.5,
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            paper_bgcolor='rgba(0,0,0,0)'
-                        )
-                        
-                        fig.update_traces(
-                            marker_line_width=0,
-                            opacity=0.8
-                        )
-                        
-                        st.plotly_chart(fig, use_container_width=True)
-                        st.markdown('</div>', unsafe_allow_html=True)
-                        
-                        # Market insights
-                        st.markdown(f"""
-                        <div style="background: linear-gradient(135deg, #e8f5e8, #f0f8f0); padding: 1rem; border-radius: 10px; margin-top: 1rem;">
-                            <h4 style="color: #2e7d32; margin: 0 0 0.5rem 0;">📈 Market Insights</h4>
-                            <p style="margin: 0; font-size: 0.9rem; color: #4a5568;">
-                                Your property is priced {"above" if predicted_price > 75 else "competitively in"} the market average for {location}.
-                            </p>
-                        </div>
-                        """, unsafe_allow_html=True)
-    
-    else:
-        # Welcome screen with animations
-        st.markdown("""
-        <div style="text-align: center; padding: 3rem 0; animation: slideInUp 1s ease-out;">
-            <div style="font-size: 5rem; margin-bottom: 1rem; animation: pulse 2s infinite;">🏠</div>
-            <h2 style="color: #1a202c; margin-bottom: 1rem; font-weight: 600; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">Welcome to Bangalore Property Price Predictor</h2>
-            <p style="color: #00000; font-size: 1.1rem; max-width: 600px; margin: 0 auto; font-weight: 500; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">
-                Get instant AI-powered price predictions for properties in Bangalore. 
-                Configure your property details in the sidebar and click predict!
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Enhanced information section
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("---")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("""
-        <div class="info-box">
-            <div style="text-align: center; font-size: 2rem; margin-bottom: 1rem;">🎯</div>
-            <h4 style="color: #2d3748; margin-bottom: 1rem;">How It Works</h4>
-            <p style="color: #4a5568; line-height: 1.6;">
-                Our AI model analyzes location, size, and amenities to predict accurate 
-                property prices in Bangalore using machine learning algorithms.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div class="info-box">
-            <div style="text-align: center; font-size: 2rem; margin-bottom: 1rem;">📊</div>
-            <h4 style="color: #2d3748; margin-bottom: 1rem;">Model Accuracy</h4>
-            <p style="color: #4a5568; line-height: 1.6;">
-                Trained on extensive real estate data with features like location, 
-                total area, BHK configuration, and bathroom count for precise predictions.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown("""
-        <div class="info-box">
-            <div style="text-align: center; font-size: 2rem; margin-bottom: 1rem;">⚠️</div>
-            <h4 style="color: #2d3748; margin-bottom: 1rem;">Important Note</h4>
-            <p style="color: #4a5568; line-height: 1.6;">
-                Predictions are estimates based on historical market data and should 
-                be used as reference. Consult real estate professionals for final decisions.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Enhanced footer
-    st.markdown("---")
-    st.markdown("""
-    <div style="text-align: center; padding: 2rem 0; animation: slideInUp 1.5s ease-out;">
-        <div style="font-size: 2rem; margin-bottom: 1rem; animation: pulse 2s infinite;">✨</div>
-        <p style="color: #4a5568; font-size: 1.1rem; margin-bottom: 0.5rem;">
-            Built with ❤️ using Streamlit & Machine Learning
-        </p>
-        <p style="color: #718096; font-size: 0.9rem;">
-            Bangalore Real Estate Price Predictor | Powered by AI Technology
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+            logger.warning(f"Location '{location}' not found in model. Using 'other' category.")
+        
+        # Make prediction
+        prediction = model.predict([x])[0]
+        
+        # Round to 2 decimal places
+        return round(prediction, 2)
+        
+    except Exception as e:
+        logger.error(f"Error in prediction: {e}")
+        raise Exception(f"Error in prediction: {e}")
 
-if __name__ == "__main__":
-    main()
+@app.route('/')
+def home():
+    """Serve the prediction interface directly"""
+    try:
+        with open('index.html', 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        return "<h1>❌ Interface Not Found</h1><p>Please place index.html in your project folder.</p>"
+
+
+# ADD THIS NEW ROUTE HERE
+@app.route('/app')
+def serve_app():
+    """Serve the price prediction interface"""
+    try:
+        with open('index.html', 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        return render_template_string("""
+        <div style="text-align: center; padding: 50px; font-family: Arial;">
+            <h1>❌ Interface Not Found</h1>
+            <p>The index.html file is missing from your Flask app directory.</p>
+            <p>Please save the HTML interface file as 'index.html' in the same folder as your Flask app.</p>
+            <a href="/" style="color: #007bff;">← Back to API Documentation</a>
+        </div>
+        """)
+
+@app.route('/get_location_names', methods=['GET'])
+def get_location_names():
+    """Return all available location names"""
+    try:
+        if locations is None:
+            return jsonify({'error': 'Model not loaded'}), 500
+            
+        # Convert to title case for better display
+        formatted_locations = [loc.replace('_', ' ').title() for loc in locations]
+        
+        return jsonify({
+            'locations': formatted_locations,
+            'total_count': len(locations)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting locations: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/predict_home_price', methods=['POST'])
+def predict_home_price():
+    """Predict home price based on input parameters"""
+    try:
+        if model is None:
+            return jsonify({'error': 'Model not loaded'}), 500
+            
+        # Get JSON data from request
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        # Extract parameters
+        location = data.get('location', '').strip()
+        sqft = data.get('total_sqft')
+        bhk = data.get('bhk')
+        bath = data.get('bath')
+        
+        # Validate required parameters
+        if not all([location, sqft is not None, bhk is not None, bath is not None]):
+            return jsonify({
+                'error': 'Missing required parameters: location, total_sqft, bhk, bath'
+            }), 400
+        
+        # Validate data types and ranges
+        try:
+            sqft = float(sqft)
+            bhk = int(bhk)
+            bath = int(bath)
+        except (ValueError, TypeError):
+            return jsonify({
+                'error': 'Invalid data types. sqft should be number, bhk and bath should be integers'
+            }), 400
+        
+        # Validate ranges
+        if sqft < 300 or sqft > 20000:
+            return jsonify({'error': 'Total square feet should be between 300 and 20000'}), 400
+        if bhk < 1 or bhk > 10:
+            return jsonify({'error': 'BHK should be between 1 and 10'}), 400
+        if bath < 1 or bath > 15:
+            return jsonify({'error': 'Bathrooms should be between 1 and 15'}), 400
+        if bath > bhk + 3:
+            return jsonify({'error': 'Number of bathrooms seems unrealistic for the given BHK'}), 400
+        if sqft / bhk < 200:
+            return jsonify({'error': 'Square feet per BHK seems too low (minimum 200 sq ft per BHK)'}), 400
+        
+        # Make prediction
+        estimated_price = get_estimated_price(location, sqft, bhk, bath)
+        
+        return jsonify({
+            'estimated_price': estimated_price,
+            'location': location,
+            'total_sqft': sqft,
+            'bhk': bhk,
+            'bath': bath,
+            'price_per_sqft': round((estimated_price * 100000) / sqft, 2),
+            'currency': 'INR Lakhs'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in prediction endpoint: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    try:
+        status = {
+            'status': 'healthy',
+            'model_loaded': model is not None,
+            'locations_loaded': locations is not None,
+            'total_locations': len(locations) if locations else 0
+        }
+        
+        return jsonify(status)
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e)
+        }), 500
+
+@app.route('/model_info', methods=['GET'])
+def model_info():
+    """Get detailed model information"""
+    try:
+        if model is None:
+            return jsonify({'error': 'Model not loaded'}), 500
+            
+        info = {
+            'model_type': str(type(model).__name__),
+            'feature_count': len(data_columns) if data_columns else 0,
+            'location_count': len(locations) if locations else 0,
+            'features': {
+                'numerical': ['total_sqft', 'bath', 'bhk'],
+                'categorical': ['location']
+            },
+            'model_params': {
+                'intercept': float(model.intercept_) if hasattr(model, 'intercept_') else None,
+                'n_features': int(model.n_features_in_) if hasattr(model, 'n_features_in_') else None
+            }
+        }
+        
+        return jsonify(info)
+        
+    except Exception as e:
+        logger.error(f"Error getting model info: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({'error': 'Endpoint not found'}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({'error': 'Internal server error'}), 500
+
+if __name__ == '__main__':
+    try:
+        # Load model and data when starting the server
+        load_saved_artifacts()
+        logger.info("Starting Flask server...")
+        
+        # Run the Flask app
+        app.run(debug=True, host='0.0.0.0', port=5000)
+        
+    except Exception as e:
+        logger.error(f"Failed to start server: {e}")
+        print(f"Error: {e}")
+        print("\nPlease ensure you have the following files in your current directory:")
+        print("- banglor_home_prices_model.pickle")
+        print("- columns.json")
